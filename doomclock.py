@@ -18,12 +18,21 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+
+
+
+TODO: unit markings
+TODO: millisecond accuracy
+TODO: detailed progress
+TODO: chime
+TODO: analog clockface
 """
 
 import sys
 import getopt
 import curses
 import time
+import os.path
 
 BIG_DIGITS = {
 	' ':[
@@ -103,6 +112,7 @@ BIG_DIGITS = {
 BAR_HEIGHT = 5
 BIG_CHAR_HEIGHT = 4
 BIG_CHAR_WIDTH = 5
+CONFIG_FILEPATH = "~/.doomclock"
 
 class Option(object):
 
@@ -188,6 +198,40 @@ def print_usage():
 			options[k].long, options[k].desc)
 	print "Usage: python %s [options]\n\n%s" % (sys.argv[0],optdesc)		
 
+def parse_arguments(optdata,arguments):
+	
+	opts,args = getopt.getopt( arguments,
+		"".join([options[x].short+(":" if options[x].has_val else "") for x in optdata]),
+		[optdata[x].long+("=" if optdata[x].has_val else "") for x in optdata] )
+	
+	for o,v in opts:
+		for k in optdata:
+			if o in ("-"+optdata[k].short,"--"+optdata[k].long):
+				if optdata[k].has_val:
+					optdata[k].value = v	
+				else:
+					optdata[k].value = True
+				break					
+	
+def parse_config_file(optdata):
+	
+	path = os.path.expanduser(CONFIG_FILEPATH)
+	if os.path.exists(path):
+		with open(path,'r') as file:
+			for line in file:
+				if line.startswith("#"):
+					continue
+				parts = map(str.strip, line.split("=",1))
+				name,val = parts if len(parts)>1 else (parts[0],None)
+				print name,val
+				for k in optdata:
+					if name == optdata[k].long:
+						if optdata[k].has_val:
+							if not val is None:
+								optdata[k].value = val
+						else:
+							optdata[k].value = True
+						break
 
 options = {
 	"help" 	: Option("h","help",desc="Shows this help and exits"),
@@ -195,23 +239,14 @@ options = {
 	"end"	: Option("e","end",True,"17:00","The end of the working day, in 24hr hh:mm format"),
 }
 
+parse_config_file(options)
+
 try:
-	opts,args = getopt.getopt( sys.argv[1:],
-		"".join([options[x].short+(":" if options[x].has_val else "") for x in options]),
-		[options[x].long+("=" if options[x].has_val else "") for x in options] )
+	parse_arguments(options,sys.argv[1:])
 except getopt.GetoptError as e:
-	print e	
+	print e
 	print_usage()
 	sys.exit(2)
-
-for o,v in opts:
-	for k in options:
-		if o in ("-"+options[k].short,"--"+options[k].long):
-			if options[k].has_val:
-				options[k].value = v	
-			else:
-				options[k].value = True
-			break	
 
 if options["help"].value:
 	print_usage()
